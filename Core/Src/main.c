@@ -179,11 +179,36 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  if (GPIO_Pin == GPIO_PIN_8)
+
+  switch (GPIO_Pin)
   {
-    HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_15);
-  } else {
-    __NOP();
+  case RESET_BTN: // reset BTN
+    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    break;
+
+  case ENC_CHAN_A:
+    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    break;
+
+  case ENC_CHAN_B:
+    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    break;
+
+  case ENC_BTN:
+    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    break;
+  
+  case TOGGLE_SWITCH:
+    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    break;
+
+  case CLOCK_INPUT:
+    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    break;
+
+  default:
+    __NOP(); // not sure why... someone else did it
+    break;
   }
   
 }
