@@ -166,11 +166,17 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PA5 PA6 PA7 PA8
                            PA9 PA10 */
-  GPIO_InitStruct.Pin = GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7|GPIO_PIN_8
+  GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_8
                           |GPIO_PIN_9|GPIO_PIN_10;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = ENC_CHAN_B|ENC_CHAN_A;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
@@ -188,11 +194,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     break;
 
   case ENC_CHAN_A:
-    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    encoderISR_A();
     break;
 
   case ENC_CHAN_B:
-    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    encoderISR_B();
     break;
 
   case ENC_BTN:
