@@ -30,23 +30,25 @@ void ok_clock_loop()
 }
 
 void ok_clock_set_period() {
-    int incrementAmount = 25;
-    if (period > 500)
+    int incrementAmount = 100;
+
+    if (encoderDirection == 1)
     {
-        if (encoderDirection == 1)
-        {
-            period -= incrementAmount;
-        }
-        else if (encoderDirection == -1)
-        {
-            period += incrementAmount;
-        }
+        period -= incrementAmount;
+    }
+    else if (encoderDirection == -1)
+    {
+        period += incrementAmount;
+    }
+
+    if (period > 250 && period < 60000)
+    {
         if (__HAL_TIM_GET_COUNTER(&htim2) >= period)
         {
-            __HAL_TIM_SET_COUNTER(&htim2, period - incrementAmount);
+            __HAL_TIM_SetCounter(&htim2, period - incrementAmount);
         }
-        
-        __HAL_TIM_SET_AUTORELOAD(&htim2, period);
+
+        __HAL_TIM_SetAutoreload(&htim2, period);
     }
 }
 
