@@ -8,5 +8,9 @@ void ok_clock_init();
 void ok_clock_loop();
 void ok_clock_set_overflow();
 
+// void TIM2_IRQHandler(void);
+// void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
+void init_TIM2();
+
 void encoderISR_A();
 void encoderISR_B();
