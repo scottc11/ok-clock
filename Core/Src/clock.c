@@ -125,12 +125,14 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
         if (PULSE == 0)
         {
+            HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, 1);
             HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, 1);
             HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, 1);
         }
 
         if (PULSE == 12)
         {
+            HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, 0);
             HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, 0);
             HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, 0);
         }
