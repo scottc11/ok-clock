@@ -6,7 +6,7 @@ extern int encoderDirection;
 
 void ok_clock_init();
 void ok_clock_loop();
-void ok_clock_set_overflow();
+void clock_reset();
 
 // void TIM2_IRQHandler(void);
 // void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);

@@ -59,6 +59,13 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 /* USER CODE BEGIN Private defines */
 
+typedef int bool;
+#define true 1
+#define false 0
+
+#define HIGH 1
+#define LOW 0
+
 #define RESET_BTN GPIO_PIN_8
 #define RESET_BTN_LED GPIO_PIN_15
 
@@ -76,6 +83,12 @@ void Error_Handler(void);
 #define TRANSPORT_PPQN_96 GPIO_PIN_0
 #define TRANSPORT_RESET GPIO_PIN_2
 #define TRANSPORT_BAR_RESET GPIO_PIN_3
+
+extern bool ODD_PULSE;
+extern uint16_t PULSE;
+extern uint8_t STEP;
+extern bool encoderIsPressed;
+
 
 /* USER CODE END Private defines */
 

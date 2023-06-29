@@ -86,6 +86,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
+  clock_reset(); // reset all connected modules on power up
   ok_clock_init();
   /* USER CODE END 2 */
 
@@ -152,13 +153,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3
-                          |GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PA0 PA1 PA2 PA3
                            PA11 PA12 PA15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3
-                          |GPIO_PIN_11|GPIO_PIN_12|GPIO_PIN_15;
+  GPIO_InitStruct.Pin = TRANSPORT_PPQN_96 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -166,13 +165,12 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : PA5 PA6 PA7 PA8
                            PA9 PA10 */
-  GPIO_InitStruct.Pin = GPIO_PIN_7|GPIO_PIN_8
-                          |GPIO_PIN_9|GPIO_PIN_10;
+  GPIO_InitStruct.Pin = RESET_BTN | TOGGLE_SWITCH | CLOCK_INPUT;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = ENC_CHAN_B|ENC_CHAN_A;
+  GPIO_InitStruct.Pin = ENC_CHAN_B | ENC_CHAN_A | ENC_BTN;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -189,8 +187,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
   switch (GPIO_Pin)
   {
-  case RESET_BTN: // reset BTN
-    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+  case RESET_BTN:
+    clock_reset();
     break;
 
   case ENC_CHAN_A:
@@ -202,7 +200,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     break;
 
   case ENC_BTN:
-    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    if (HAL_GPIO_ReadPin(GPIOA, ENC_BTN)) { // inverted
+      encoderIsPressed = false;
+    } else {
+      encoderIsPressed = true;
+    }
     break;
   
   case TOGGLE_SWITCH:

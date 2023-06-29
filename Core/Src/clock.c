@@ -4,6 +4,12 @@ TIM_HandleTypeDef htim2;
 
 uint16_t PERIOD = 3000;
 
+bool encoderIsPressed = false;
+
+bool ODD_PULSE = false;
+uint16_t PULSE = 0;
+uint8_t STEP = 0;
+
 const int PPQN = 192; // 96, but we need to have a clock LOW period for output pins so we double it
 int STEPS_PER_BAR = 4;
 
@@ -30,8 +36,15 @@ void ok_clock_loop()
 
 }
 
+void clock_reset() {
+    PULSE = 0;
+    STEP = 0;
+    HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, LOW); // inverted
+    HAL_GPIO_WritePin(GPIOA, TRANSPORT_RESET, HIGH);
+}
+
 void ok_clock_set_period() {
-    int incrementAmount = 100;
+    int incrementAmount = encoderIsPressed ? 10 : 100;
 
     if (encoderDirection == 1)
     {
@@ -95,10 +108,6 @@ void TIM2_IRQHandler(void)
     HAL_TIM_IRQHandler(&htim2);
 }
 
-int ODD_PULSE = 0; // sudo bool
-uint16_t PULSE = 0;
-uint8_t STEP = 0;
-
 /**
  * @brief this callback needs to trigger at a rate of PPQN * 2
  * On even it will advance PPQN by 1 and write PPQN_96 pin HIGH
@@ -115,26 +124,28 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         // __HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
         // do clock stuff
 
-        if (ODD_PULSE == 0) {
-            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, 1);
-            ODD_PULSE = 1;
+        if (ODD_PULSE == false) {
+            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, HIGH);
+            ODD_PULSE = true;
         } else {
-            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, 0);
-            ODD_PULSE = 0;
+            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, LOW);
+            ODD_PULSE = false;
         }
 
         if (PULSE == 0)
         {
-            HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, 1);
-            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, 1);
-            HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, 1);
+            HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, LOW); // gate outs are inverted
+            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, HIGH);
+            HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, HIGH);
         }
 
         if (PULSE == 12)
         {
-            HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, 0);
-            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, 0);
-            HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, 0);
+            HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, HIGH); // inverted
+            HAL_GPIO_WritePin(GPIOA, TRANSPORT_RESET, LOW);
+            HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, HIGH); // inverted
+            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, LOW);
+            HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, LOW);
         }
 
         if (PULSE < PPQN - 1) {
