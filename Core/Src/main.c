@@ -63,43 +63,25 @@ static void MX_GPIO_Init(void);
   */
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
-  /* USER CODE BEGIN SysInit */
+  HAL_Delay(100);
+    
+  // Initialize Clock
+  ok_clock_reset(); // reset all connected modules on power up
 
-  /* USER CODE END SysInit */
+  ok_clock_init();
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  /* USER CODE BEGIN 2 */
-  clock_reset(); // reset all connected modules on power up
-  ok_clock_init();
-  /* USER CODE END 2 */
 
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
   while (1)
   {
-    ok_clock_loop();
-    /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
   }
-  /* USER CODE END 3 */
 }
 
 /**
@@ -163,14 +145,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PA5 PA6 PA7 PA8
-                           PA9 PA10 */
-  GPIO_InitStruct.Pin = RESET_BTN | TOGGLE_SWITCH | CLOCK_INPUT;
+  GPIO_InitStruct.Pin = RESET_BTN;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = ENC_CHAN_B | ENC_CHAN_A | ENC_BTN;
+  GPIO_InitStruct.Pin = ENC_CHAN_B | ENC_CHAN_A | ENC_BTN | TOGGLE_SWITCH;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
@@ -188,7 +168,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
   switch (GPIO_Pin)
   {
   case RESET_BTN:
-    clock_reset();
+    ok_clock_reset();
     break;
 
   case ENC_CHAN_A:
@@ -208,11 +188,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     break;
   
   case TOGGLE_SWITCH:
-    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
-    break;
-
-  case CLOCK_INPUT:
-    HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+    ok_clock_set_clock_source(HAL_GPIO_ReadPin(GPIOA, TOGGLE_SWITCH));
     break;
 
   default:

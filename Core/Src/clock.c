@@ -1,8 +1,9 @@
 #include "clock.h"
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
-uint16_t PERIOD = 3000;
+uint16_t FREQUENCY = 3000;
 
 bool encoderIsPressed = false;
 
@@ -21,6 +22,8 @@ int encoderStateB = 0;
 int prevEncoderStateA = 0;
 int prevEncoderStateB = 0;
 
+int CLOCK_SOURCE = CLOCK_SOURCE_INTERNAL; // internal, external, or MIDI (0, 1, 2)
+
 // Define a variable to store the direction of the encoder rotation
 int encoderDirection = 0;
 
@@ -28,19 +31,134 @@ void ok_clock_init()
 {
     // initialize stuff
     init_TIM2();
+    init_TIM1();
+    HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
     HAL_TIM_Base_Start_IT(&htim2);
+    ok_clock_set_clock_source(HAL_GPIO_ReadPin(GPIOA, TOGGLE_SWITCH));
 }
 
-void ok_clock_loop()
+void ok_clock_advance()
 {
+    if (ODD_PULSE == false)
+    {
+        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, HIGH);
+        ODD_PULSE = true;
+    }
+    else
+    {
+        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, LOW);
+        ODD_PULSE = false;
+    }
 
+    if (PULSE == 0)
+    {
+        HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, LOW); // gate outs are inverted
+        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, HIGH);
+        HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, HIGH);
+    }
+
+    if (PULSE == 12)
+    {
+        HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, HIGH); // inverted
+        HAL_GPIO_WritePin(GPIOA, TRANSPORT_RESET, LOW);
+        HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, HIGH); // inverted
+        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, LOW);
+        HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, LOW);
+    }
+
+    if (PULSE < PPQN - 1)
+    {
+        PULSE++;
+    }
+    else
+    {
+        if (CLOCK_SOURCE == CLOCK_SOURCE_EXTERNAL) {
+            // external input will reset pulse to 0 and resume TIM4 in input capture callback
+            __HAL_TIM_DISABLE(&htim2); // halt TIM2 until a new input capture event occurs
+        } else {
+            PULSE = 0;
+
+            if (STEP < STEPS_PER_BAR - 1) // I don't think steps matter any more...
+            {
+                STEP++;
+            }
+            else
+            {
+                STEP = 0;
+            }
+        }
+    }
 }
 
-void clock_reset() {
+/**
+ * @brief this gets triggered when an Input Capture event occurs. 
+ * 
+ */
+void ok_clock_capture()
+{
+    // almost always, there will need to be at least 1 pulse not yet executed prior to an input capture, so you must trigger all remaining pulses
+    if (PULSE < PPQN - 1)
+    {
+        // handleStep();
+    }
+
+    __HAL_TIM_SetCounter(&htim1, 0); // reset after each input capture
+    __HAL_TIM_SetCounter(&htim2, 0); // reset after each input capture
+    __HAL_TIM_ENABLE(&htim2);        // re-enable TIM2 (it gets disabled should the pulse count overtake PPQN before a new input capture event occurs)
+    uint32_t inputCapture = __HAL_TIM_GetCompare(&htim1, TIM_CHANNEL_3);
+    ok_clock_set_frequency(inputCapture / PPQN);
     PULSE = 0;
+    ODD_PULSE = false;
+    ok_clock_advance();
+}
+
+void ok_clock_reset()
+{
+    PULSE = 0;
+    ODD_PULSE = false;
     STEP = 0;
     HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, LOW); // inverted
     HAL_GPIO_WritePin(GPIOA, TRANSPORT_RESET, HIGH);
+}
+
+void ok_clock_set_clock_source(int clock_source)
+{
+    switch (clock_source)
+    {
+    case CLOCK_SOURCE_INTERNAL:
+        CLOCK_SOURCE = CLOCK_SOURCE_INTERNAL;
+        HAL_NVIC_DisableIRQ(TIM1_CC_IRQn);
+        __HAL_TIM_ENABLE(&htim2); // re-enable TIM4 (it gets disabled should the pulse count overtake PPQN before a new input capture event occurs)
+        break;
+    case CLOCK_SOURCE_EXTERNAL:
+        CLOCK_SOURCE = CLOCK_SOURCE_EXTERNAL;
+        HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
+        break;
+    case CLOCK_SOURCE_MIDI:
+        /* code */
+        break;
+    }
+}
+
+/**
+ * @brief Sets the tempo by setting the Timers overflow / reload value
+ * 
+ * @param frequency 
+ */
+void ok_clock_set_frequency(uint32_t frequency)
+{
+    if (frequency > 250 && frequency < 60000)
+    {
+        FREQUENCY = frequency;
+
+        // this block might not be needed, but it was here for a reason...
+        if (__HAL_TIM_GET_COUNTER(&htim2) >= FREQUENCY)
+        {
+            // __HAL_TIM_SetCounter(&htim2, FREQUENCY - incrementAmount); 
+        }
+
+        __HAL_TIM_SetAutoreload(&htim2, FREQUENCY);
+    }
 }
 
 void ok_clock_set_period() {
@@ -48,21 +166,11 @@ void ok_clock_set_period() {
 
     if (encoderDirection == 1)
     {
-        PERIOD -= incrementAmount;
+        ok_clock_set_frequency(FREQUENCY - incrementAmount);
     }
     else if (encoderDirection == -1)
     {
-        PERIOD += incrementAmount;
-    }
-
-    if (PERIOD > 250 && PERIOD < 60000)
-    {
-        if (__HAL_TIM_GET_COUNTER(&htim2) >= PERIOD)
-        {
-            __HAL_TIM_SetCounter(&htim2, PERIOD - incrementAmount);
-        }
-
-        __HAL_TIM_SetAutoreload(&htim2, PERIOD);
+        ok_clock_set_frequency(FREQUENCY + incrementAmount);
     }
 }
 
@@ -80,7 +188,7 @@ void init_TIM2(void)
     htim2.Instance = TIM2;
     htim2.Init.Prescaler = 20;
     htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim2.Init.Period = PERIOD;
+    htim2.Init.Period = FREQUENCY;
     htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -100,6 +208,73 @@ void init_TIM2(void)
     }
 }
 
+void init_TIM1(void)
+{
+    /* Peripheral clock enable */
+    __HAL_RCC_TIM1_CLK_ENABLE();
+
+    /**TIM1 GPIO Configuration
+    PA10     ------> TIM1_CH3
+    */
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    GPIO_InitStruct.Pin = CLOCK_INPUT;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = GPIO_AF2_TIM1;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    
+    /* TIM1 interrupt Init */
+    HAL_NVIC_SetPriority(TIM1_CC_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
+
+
+    TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+    TIM_MasterConfigTypeDef sMasterConfig = {0};
+    TIM_IC_InitTypeDef sConfigIC = {0};
+
+    htim1.Instance = TIM1;
+    htim1.Init.Prescaler = 1;
+    htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+    htim1.Init.Period = 65535;
+    htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+    htim1.Init.RepetitionCounter = 0;
+    htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+    if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+    if (HAL_TIM_IC_Init(&htim1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    sSlaveConfig.SlaveMode = TIM_SLAVEMODE_EXTERNAL1;
+    sSlaveConfig.InputTrigger = TIM_TS_ITR0;
+    if (HAL_TIM_SlaveConfigSynchro(&htim1, &sSlaveConfig) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+    sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+    if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+    {
+        Error_Handler();
+    }
+
+    sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_FALLING; // input is inverted
+    sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+    sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+    sConfigIC.ICFilter = 0;
+    if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_3) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
 /**
  * @brief This function handles TIM2 global interrupt.
  */
@@ -109,11 +284,19 @@ void TIM2_IRQHandler(void)
 }
 
 /**
+ * @brief This function handles TIM1 capture compare interrupt.
+ */
+void TIM1_CC_IRQHandler(void)
+{
+    HAL_TIM_IRQHandler(&htim1);
+}
+
+/**
  * @brief this callback needs to trigger at a rate of PPQN * 2
  * On even it will advance PPQN by 1 and write PPQN_96 pin HIGH
  * On odd it will write PPQN_96 pin LOW
  * When PULSE == 0, Increments Step + 1 and writes PPQN_1 pin HIGH
- * After 4 pulse counds, writes PPQN_1 pin LOW
+ * After 4 pulse counts, writes PPQN_1 pin LOW
  *
  * @param htim
  */
@@ -121,44 +304,38 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM2)
     {
-        // __HAL_TIM_CLEAR_IT(&htim2, TIM_IT_UPDATE);
-        // do clock stuff
+        ok_clock_advance();
+    }
+}
 
-        if (ODD_PULSE == false) {
-            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, HIGH);
-            ODD_PULSE = true;
-        } else {
-            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, LOW);
-            ODD_PULSE = false;
-        }
+/**
+ * @brief Input Capture Callback for all TIMx configured in Input Capture mode
+ */
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM1) {
+        ok_clock_capture();
+        // this is working, but the problem now is that we need to handle missed PPQNs,
+        // and in order to do that we usually just trigger all remaining PPQNs instantly, 
+        // which will no longer work because the connected modules 'might' not be configured to handle 
+        // trigger events so rapidly.
+        // We would have to execute the remaining PPQNs over a short period of time, so the rise and fall of
+        // the signal gets detected by connected modules.
 
-        if (PULSE == 0)
-        {
-            HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, LOW); // gate outs are inverted
-            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, HIGH);
-            HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, HIGH);
-        }
+        // alternatively, the external devices could be setup so that they listen for the quarter note signal,
+        // and then determine if they have executed all their PPQNs, at which point they would execute them
+        
+        // or, the F4 is actually running at twice the speed, so take the new
+        // rate at which to trigger pulse out on and off === (numTicksPerPulse / (PPQN - 1 - PULSE)) * 2
 
-        if (PULSE == 12)
-        {
-            HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, HIGH); // inverted
-            HAL_GPIO_WritePin(GPIOA, TRANSPORT_RESET, LOW);
-            HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, HIGH); // inverted
-            HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, LOW);
-            HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, LOW);
-        }
+        // ACTUALLY, your pulse is actually PPQN * 2, so you would need to multiply the above equation by 2.
 
-        if (PULSE < PPQN - 1) {
-            PULSE++;
-        } else {
-            PULSE = 0;
-            
-            if (STEP < STEPS_PER_BAR - 1) {
-                STEP++;
-            } else {
-                STEP = 0;
-            }
-        }
+        // or, maybe you could set the new TIM2 speed to the above formula
+
+
+        // or, external modules stop their clocks once their pulse === PPQN - 1. They don't start until quarter note comes in
+        // if quarter note comes early, they rapidly execute remaining pulses via a qeuee
+        // if you do this, then PPQN on clock means nothing
     }
 }
 
