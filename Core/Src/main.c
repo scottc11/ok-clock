@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "clock.h"
+#include "midi.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -40,7 +41,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
+UART_HandleTypeDef huart1;
+uint8_t midiByte;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -48,12 +50,29 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+uint8_t midi_buffer[10];
+
+/**
+ * @brief UART data recieved callback
+ *
+ * @param huart
+ */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  if (huart->Instance == USART1)
+  {
+    HAL_UART_Receive_IT(&huart1, midi_buffer, 1);
+
+  }
+}
 
 /* USER CODE END 0 */
 
@@ -75,12 +94,27 @@ int main(void)
 
   ok_clock_init();
 
+  ok_clock_set_clock_source(CLOCK_SOURCE_MIDI);
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_USART1_UART_Init();
+  
+  HAL_UART_Receive_IT(&huart1, midi_buffer, 1); // this function is what "starts" the UART RX process
 
   while (1)
   {
-
+    // if (CLOCK_SOURCE == CLOCK_SOURCE_MIDI) {
+    //   HAL_UART_Receive(&huart1, &midiByte, 1, 1000);
+    //   ok_clock_advance();
+    // }
+    if (CLOCK_SOURCE == CLOCK_SOURCE_MIDI) {
+      if (midi_buffer[0] != 0)
+      {
+        HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
+        // process_midi_message(midi_buffer);
+        midi_buffer[0] = 0;
+      }
+    }
   }
 }
 
@@ -119,6 +153,14 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
+  RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1;
+  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
+  if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+  {
+    Error_Handler();
+  }
 }
 
 /**
@@ -133,6 +175,7 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15, GPIO_PIN_RESET);
@@ -159,6 +202,54 @@ static void MX_GPIO_Init(void)
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI4_15_IRQn);
+}
+
+/**
+ * @brief USART1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_USART1_UART_Init(void)
+{  
+  /* Peripheral clock enable */
+  __HAL_RCC_USART1_CLK_ENABLE();
+
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+  /**USART1 GPIO Configuration
+  PB6     ------> USART1_TX
+  PB7     ------> USART1_RX
+  */
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF0_USART1;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 31250;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* USART1 interrupt Init */
+  HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(USART1_IRQn);
+  
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
 }
 
 /* USER CODE BEGIN 4 */

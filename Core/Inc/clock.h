@@ -3,11 +3,18 @@
 #include "main.h"
 
 #define CLOCK_SOURCE_INTERNAL 0
-#define CLOCK_SOURCE_EXTERNAL 1
-#define CLOCK_SOURCE_MIDI 2
+#define CLOCK_SOURCE_EXTERNAL 2
+#define CLOCK_SOURCE_MIDI 1
 
+extern int PPQN;
+extern uint16_t PULSE;
+extern bool ODD_PULSE;
+extern bool SYNCHRONIZE;
 extern int CLOCK_SOURCE;
 extern int encoderDirection;
+
+extern TIM_HandleTypeDef htim1;
+extern TIM_HandleTypeDef htim2;
 
 void ok_clock_init();
 void ok_clock_advance();

@@ -3,15 +3,17 @@
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
-uint16_t FREQUENCY = 3000;
+uint16_t FREQUENCY = 6000;
+uint8_t TEMPO_ADJUST = 100;
 
 bool encoderIsPressed = false;
 
+bool SYNCHRONIZE = false;
 bool ODD_PULSE = false;
 uint16_t PULSE = 0;
 uint8_t STEP = 0;
 
-const int PPQN = 192; // 96, but we need to have a clock LOW period for output pins so we double it
+int PPQN = 192; // 96, but we need to have a clock LOW period for output pins so we double it
 int STEPS_PER_BAR = 4;
 
 // Define the initial state of the encoder pins
@@ -59,12 +61,22 @@ void ok_clock_advance()
 
     if (PULSE == 12)
     {
-        HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, HIGH); // inverted
+        HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, HIGH); // inverted || always setting this high just incase a reset was triggered
         HAL_GPIO_WritePin(GPIOA, TRANSPORT_RESET, LOW);
         HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, HIGH); // inverted
         HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, LOW);
         HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, LOW);
     }
+
+    // FOR JUSTIN ***************
+    // if (PULSE == 96) {
+    //     HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, LOW); // gate outs are inverted
+    // }
+
+    // if (PULSE == 108) {
+    //     HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, HIGH); // inverted
+    // }
+    // FOR JUSTIN ***************
 
     if (PULSE < PPQN - 1)
     {
@@ -97,10 +109,6 @@ void ok_clock_advance()
 void ok_clock_capture()
 {
     // almost always, there will need to be at least 1 pulse not yet executed prior to an input capture, so you must trigger all remaining pulses
-    if (PULSE < PPQN - 1)
-    {
-        // handleStep();
-    }
 
     __HAL_TIM_SetCounter(&htim1, 0); // reset after each input capture
     __HAL_TIM_SetCounter(&htim2, 0); // reset after each input capture
@@ -135,6 +143,7 @@ void ok_clock_set_clock_source(int clock_source)
         HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
         break;
     case CLOCK_SOURCE_MIDI:
+        CLOCK_SOURCE = CLOCK_SOURCE_MIDI;
         /* code */
         break;
     }
@@ -151,18 +160,19 @@ void ok_clock_set_frequency(uint32_t frequency)
     {
         FREQUENCY = frequency;
 
-        // this block might not be needed, but it was here for a reason...
+        // ensure counter reloads, might not be necessary
         if (__HAL_TIM_GET_COUNTER(&htim2) >= FREQUENCY)
         {
-            // __HAL_TIM_SetCounter(&htim2, FREQUENCY - incrementAmount); 
+            __HAL_TIM_SetCounter(&htim2, FREQUENCY - 1);
         }
 
         __HAL_TIM_SetAutoreload(&htim2, FREQUENCY);
     }
 }
 
+// this function can be removed and its contents put in encoder interrupt function
 void ok_clock_set_period() {
-    int incrementAmount = encoderIsPressed ? 10 : 100;
+    int incrementAmount = encoderIsPressed ? 10 : TEMPO_ADJUST;
 
     if (encoderDirection == 1)
     {
