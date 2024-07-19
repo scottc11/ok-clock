@@ -37,6 +37,7 @@ BUILD_DIR = build
 # C sources
 C_SOURCES =  \
 Core/Src/main.c \
+Core/Src/timers.c \
 Core/Src/clock.c \
 Core/Src/midi.c \
 Core/Src/stm32f0xx_it.c \

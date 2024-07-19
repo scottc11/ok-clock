@@ -8,8 +8,6 @@
 
 extern int PPQN;
 extern uint16_t PULSE;
-extern bool ODD_PULSE;
-extern bool SYNCHRONIZE;
 extern int CLOCK_SOURCE;
 extern int encoderDirection;
 
@@ -17,9 +15,11 @@ extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
 
 void ok_clock_init();
-void ok_clock_advance();
 void ok_clock_capture();
+
 void ok_clock_reset();
+void ok_clock_advance();
+
 void ok_clock_set_frequency(uint32_t frequency);
 void ok_clock_set_clock_source(int clock_source);
 

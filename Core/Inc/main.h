@@ -66,27 +66,25 @@ typedef int bool;
 #define HIGH 1
 #define LOW 0
 
-#define RESET_BTN GPIO_PIN_8
-#define RESET_BTN_LED GPIO_PIN_15
+#define RESET_BTN                GPIO_PIN_8
+#define RESET_BTN_LED            GPIO_PIN_15
 
-#define ENC_BTN GPIO_PIN_7
-#define ENC_CHAN_A GPIO_PIN_6
-#define ENC_CHAN_B GPIO_PIN_5
+#define ENC_BTN                  GPIO_PIN_7
+#define ENC_CHAN_A               GPIO_PIN_6
+#define ENC_CHAN_B               GPIO_PIN_5
 
-#define TOGGLE_SWITCH GPIO_PIN_9
+#define TOGGLE_SWITCH            GPIO_PIN_9
 
-#define CLOCK_INPUT GPIO_PIN_10
-#define CLOCK_OUTPUT GPIO_PIN_11
-#define CLOCK_RESET_OUTPUT GPIO_PIN_12
+#define CLOCK_INPUT              GPIO_PIN_10
+#define CLOCK_OUTPUT             GPIO_PIN_11
+#define CLOCK_RESET_OUTPUT       GPIO_PIN_12
 
-#define TRANSPORT_PPQN_1 GPIO_PIN_1
-#define TRANSPORT_PPQN_96 GPIO_PIN_0
-#define TRANSPORT_RESET GPIO_PIN_2
-#define TRANSPORT_BAR_RESET GPIO_PIN_3
+#define TRANSPORT_QUARTER_NOTE   GPIO_PIN_1
+#define TRANSPORT_PPQN           GPIO_PIN_0
+#define TRANSPORT_RESET          GPIO_PIN_2
+#define TRANSPORT_BAR_RESET      GPIO_PIN_3
 
-extern bool ODD_PULSE;
 extern uint16_t PULSE;
-extern uint8_t STEP;
 extern bool encoderIsPressed;
 
 

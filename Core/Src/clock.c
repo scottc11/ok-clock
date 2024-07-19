@@ -8,13 +8,9 @@ uint8_t TEMPO_ADJUST = 100;
 
 bool encoderIsPressed = false;
 
-bool SYNCHRONIZE = false;
-bool ODD_PULSE = false;
 uint16_t PULSE = 0;
-uint8_t STEP = 0;
 
-int PPQN = 192; // 96, but we need to have a clock LOW period for output pins so we double it
-int STEPS_PER_BAR = 4;
+int PPQN = 24;
 
 // Define the initial state of the encoder pins
 int encoderStateA = 0;
@@ -34,37 +30,26 @@ void ok_clock_init()
     // initialize stuff
     init_TIM2();
     init_TIM1();
-    HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
-    HAL_TIM_Base_Start_IT(&htim2);
     ok_clock_set_clock_source(HAL_GPIO_ReadPin(GPIOA, TOGGLE_SWITCH));
 }
 
 void ok_clock_advance()
 {
-    if (ODD_PULSE == false)
-    {
-        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, HIGH);
-        ODD_PULSE = true;
-    }
-    else
-    {
-        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96, LOW);
-        ODD_PULSE = false;
-    }
+    HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN, HIGH); // this gets set back low after short delay using TIM6
 
     if (PULSE == 0)
     {
         HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, LOW); // gate outs are inverted
-        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, HIGH);
+        HAL_GPIO_WritePin(GPIOA, TRANSPORT_QUARTER_NOTE, HIGH);
         HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, HIGH);
     }
 
-    if (PULSE == 12)
+    if (PULSE == 3)
     {
         HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, HIGH); // inverted || always setting this high just incase a reset was triggered
         HAL_GPIO_WritePin(GPIOA, TRANSPORT_RESET, LOW);
         HAL_GPIO_WritePin(GPIOA, CLOCK_OUTPUT, HIGH); // inverted
-        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_1, LOW);
+        HAL_GPIO_WritePin(GPIOA, TRANSPORT_QUARTER_NOTE, LOW);
         HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, LOW);
     }
 
@@ -89,15 +74,6 @@ void ok_clock_advance()
             __HAL_TIM_DISABLE(&htim2); // halt TIM2 until a new input capture event occurs
         } else {
             PULSE = 0;
-
-            if (STEP < STEPS_PER_BAR - 1) // I don't think steps matter any more...
-            {
-                STEP++;
-            }
-            else
-            {
-                STEP = 0;
-            }
         }
     }
 }
@@ -116,35 +92,38 @@ void ok_clock_capture()
     uint32_t inputCapture = __HAL_TIM_GetCompare(&htim1, TIM_CHANNEL_3);
     ok_clock_set_frequency(inputCapture / PPQN);
     PULSE = 0;
-    ODD_PULSE = false;
     ok_clock_advance();
 }
 
 void ok_clock_reset()
 {
     PULSE = 0;
-    ODD_PULSE = false;
-    STEP = 0;
     HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, LOW); // inverted
     HAL_GPIO_WritePin(GPIOA, TRANSPORT_RESET, HIGH);
 }
 
 void ok_clock_set_clock_source(int clock_source)
 {
+    HAL_TIM_Base_Stop_IT(&htim2);
+    HAL_TIM_IC_Stop_IT(&htim1, TIM_CHANNEL_3);
     switch (clock_source)
     {
     case CLOCK_SOURCE_INTERNAL:
         CLOCK_SOURCE = CLOCK_SOURCE_INTERNAL;
         HAL_NVIC_DisableIRQ(TIM1_CC_IRQn);
+        HAL_TIM_Base_Start_IT(&htim2);
         __HAL_TIM_ENABLE(&htim2); // re-enable TIM4 (it gets disabled should the pulse count overtake PPQN before a new input capture event occurs)
         break;
+
     case CLOCK_SOURCE_EXTERNAL:
+        HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
         CLOCK_SOURCE = CLOCK_SOURCE_EXTERNAL;
         HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
         break;
+    
     case CLOCK_SOURCE_MIDI:
         CLOCK_SOURCE = CLOCK_SOURCE_MIDI;
-        /* code */
+        // enable UART
         break;
     }
 }
@@ -315,6 +294,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance == TIM2)
     {
         ok_clock_advance();
+    } else if (htim->Instance == TIM6) {
+        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN, LOW); // set to low after short delay (delay dertmined by TIM6)
+        HAL_TIM_Base_Stop_IT(htim);
     }
 }
 

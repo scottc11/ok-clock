@@ -20,6 +20,7 @@
 #include "main.h"
 #include "clock.h"
 #include "midi.h"
+#include "timers.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -88,13 +89,16 @@ int main(void)
   SystemClock_Config();
 
   HAL_Delay(100);
-    
+
+  init_TIM6();
+
   // Initialize Clock
   ok_clock_reset(); // reset all connected modules on power up
 
   ok_clock_init();
 
-  ok_clock_set_clock_source(CLOCK_SOURCE_MIDI);
+  
+
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
@@ -110,8 +114,8 @@ int main(void)
     if (CLOCK_SOURCE == CLOCK_SOURCE_MIDI) {
       if (midi_buffer[0] != 0)
       {
-        HAL_GPIO_TogglePin(GPIOA, RESET_BTN_LED);
-        // process_midi_message(midi_buffer);
+        HAL_TIM_Base_Start_IT(&htim6);
+        process_midi_message(midi_buffer);
         midi_buffer[0] = 0;
       }
     }
@@ -178,11 +182,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN_96 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PA0 PA1 PA2 PA3
                            PA11 PA12 PA15 */
-  GPIO_InitStruct.Pin = TRANSPORT_PPQN_96 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15;
+  GPIO_InitStruct.Pin = TRANSPORT_PPQN | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_11 | GPIO_PIN_12 | GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;

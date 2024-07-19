@@ -1,5 +1,10 @@
 #include "midi.h"
 
+#define MIDI_START_BYTE 0xFA
+#define MIDI_STOP_BYTE 0xFC
+#define MIDI_CONTINUE_BYTE 0xFB
+#define MIDI_CLOCK_BYTE 0xF8
+
 /**
  * @brief
  *
@@ -14,16 +19,16 @@ void process_midi_message(uint8_t *midi_buffer)
 {
     switch (midi_buffer[0])
     {
-    case 0xFA:
+    case MIDI_START_BYTE:
         ok_clock_reset();
         break;
-    case 0xFC:
+    case MIDI_STOP_BYTE:
         ok_clock_reset();
         break;
-    case 0xFB:
+    case MIDI_CONTINUE_BYTE:
         ok_clock_reset();
         break;
-    case 0xF8:
+    case MIDI_CLOCK_BYTE:
         ok_clock_advance();
         break;
     default:
