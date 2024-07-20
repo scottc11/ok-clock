@@ -33,9 +33,9 @@ void init_TIM6()
     // 48000000 / ((500 + 1) * (32000 + 1)) == 2.99Hz
 
     htim6.Instance = TIM6;
-    htim6.Init.Prescaler = 20;
+    htim6.Init.Prescaler = 10;
     htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim6.Init.Period = 32000;
+    htim6.Init.Period = 25000;
     htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     
     if (HAL_TIM_Base_Init(&htim6) != HAL_OK)

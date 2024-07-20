@@ -59,7 +59,7 @@ static void MX_USART1_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-uint8_t midi_buffer[10];
+uint8_t MIDI_UART_BUFFER[3];
 
 /**
  * @brief UART data recieved callback
@@ -70,8 +70,16 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART1)
   {
-    HAL_UART_Receive_IT(&huart1, midi_buffer, 1);
+    if (CLOCK_SOURCE == CLOCK_SOURCE_MIDI)
+    {
+      if (MIDI_UART_BUFFER[0] != 0)
+      {
+        process_midi_message(MIDI_UART_BUFFER);
+        MIDI_UART_BUFFER[0] = 0;
+      }
+    }
 
+    HAL_UART_Receive_IT(&huart1, MIDI_UART_BUFFER, 1); // listen for next byte
   }
 }
 
@@ -90,35 +98,25 @@ int main(void)
 
   HAL_Delay(100);
 
+  init_TIM1();
+  init_TIM2();
   init_TIM6();
 
   // Initialize Clock
   ok_clock_reset(); // reset all connected modules on power up
-
   ok_clock_init();
-
   
-
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
+
+  HAL_TIM_Base_Start_IT(&htim6); // this just likes getting started right away for some reason...
   
-  HAL_UART_Receive_IT(&huart1, midi_buffer, 1); // this function is what "starts" the UART RX process
+  HAL_UART_Receive_IT(&huart1, MIDI_UART_BUFFER, 1); // this function is what "starts" the UART RX process
 
   while (1)
   {
-    // if (CLOCK_SOURCE == CLOCK_SOURCE_MIDI) {
-    //   HAL_UART_Receive(&huart1, &midiByte, 1, 1000);
-    //   ok_clock_advance();
-    // }
-    if (CLOCK_SOURCE == CLOCK_SOURCE_MIDI) {
-      if (midi_buffer[0] != 0)
-      {
-        HAL_TIM_Base_Start_IT(&htim6);
-        process_midi_message(midi_buffer);
-        midi_buffer[0] = 0;
-      }
-    }
+    // everything is in interrupt routines
   }
 }
 

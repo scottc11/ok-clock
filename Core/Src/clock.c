@@ -3,12 +3,15 @@
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
-uint16_t FREQUENCY = 6000;
+uint16_t TEMPO_CEILING = 60000;
+uint16_t TEMPO_FLOOR = 6000;
+uint16_t FREQUENCY = 30000;
 uint8_t TEMPO_ADJUST = 100;
 
 bool encoderIsPressed = false;
 
 uint16_t PULSE = 0;
+bool RUNNING = false;
 
 int PPQN = 24;
 
@@ -28,14 +31,57 @@ int encoderDirection = 0;
 void ok_clock_init()
 {
     // initialize stuff
-    init_TIM2();
-    init_TIM1();
+    ok_clock_set_frequency(FREQUENCY);
     ok_clock_set_clock_source(HAL_GPIO_ReadPin(GPIOA, TOGGLE_SWITCH));
+}
+
+void ok_clock_start()
+{
+    RUNNING = true;
+    switch (CLOCK_SOURCE)
+    {
+    case CLOCK_SOURCE_INTERNAL:
+        // HAL_NVIC_DisableIRQ(TIM1_CC_IRQn); // not sure why this is here
+        HAL_TIM_Base_Start_IT(&htim2);
+        break;
+
+    case CLOCK_SOURCE_EXTERNAL:
+        HAL_TIM_IC_Stop_IT(&htim1, TIM_CHANNEL_3);
+        break;
+
+    case CLOCK_SOURCE_MIDI:
+        // disable UART
+        break;
+    }
+}
+
+void ok_clock_stop()
+{
+    RUNNING = false;
+    switch (CLOCK_SOURCE)
+    {
+    case CLOCK_SOURCE_INTERNAL:
+        HAL_NVIC_DisableIRQ(TIM1_CC_IRQn); // not sure why this is here
+        HAL_TIM_Base_Stop_IT(&htim2);
+        break;
+    
+    case CLOCK_SOURCE_EXTERNAL:
+        HAL_TIM_IC_Stop_IT(&htim1, TIM_CHANNEL_3);
+        break;
+    
+    case CLOCK_SOURCE_MIDI:
+        // disable UART
+        break;
+    }
 }
 
 void ok_clock_advance()
 {
-    HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN, HIGH); // this gets set back low after short delay using TIM6
+    if (RUNNING == false)
+        return;
+
+    HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN, HIGH);
+    HAL_TIM_Base_Start_IT(&htim6); // start TIM6 to trigger TRANSPORT_PPQN pin low after short delay
 
     if (PULSE == 0)
     {
@@ -44,7 +90,7 @@ void ok_clock_advance()
         HAL_GPIO_WritePin(GPIOA, RESET_BTN_LED, HIGH);
     }
 
-    if (PULSE == 3)
+    if (PULSE == 2)
     {
         HAL_GPIO_WritePin(GPIOA, CLOCK_RESET_OUTPUT, HIGH); // inverted || always setting this high just incase a reset was triggered
         HAL_GPIO_WritePin(GPIOA, TRANSPORT_RESET, LOW);
@@ -104,28 +150,12 @@ void ok_clock_reset()
 
 void ok_clock_set_clock_source(int clock_source)
 {
+    
     HAL_TIM_Base_Stop_IT(&htim2);
     HAL_TIM_IC_Stop_IT(&htim1, TIM_CHANNEL_3);
-    switch (clock_source)
-    {
-    case CLOCK_SOURCE_INTERNAL:
-        CLOCK_SOURCE = CLOCK_SOURCE_INTERNAL;
-        HAL_NVIC_DisableIRQ(TIM1_CC_IRQn);
-        HAL_TIM_Base_Start_IT(&htim2);
-        __HAL_TIM_ENABLE(&htim2); // re-enable TIM4 (it gets disabled should the pulse count overtake PPQN before a new input capture event occurs)
-        break;
-
-    case CLOCK_SOURCE_EXTERNAL:
-        HAL_TIM_IC_Start_IT(&htim1, TIM_CHANNEL_3);
-        CLOCK_SOURCE = CLOCK_SOURCE_EXTERNAL;
-        HAL_NVIC_EnableIRQ(TIM1_CC_IRQn);
-        break;
-    
-    case CLOCK_SOURCE_MIDI:
-        CLOCK_SOURCE = CLOCK_SOURCE_MIDI;
-        // enable UART
-        break;
-    }
+    CLOCK_SOURCE = clock_source;
+    ok_clock_reset();
+    ok_clock_start();
 }
 
 /**
@@ -135,7 +165,7 @@ void ok_clock_set_clock_source(int clock_source)
  */
 void ok_clock_set_frequency(uint32_t frequency)
 {
-    if (frequency > 250 && frequency < 60000)
+    if (frequency > TEMPO_FLOOR && frequency < TEMPO_CEILING)
     {
         FREQUENCY = frequency;
 

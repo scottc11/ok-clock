@@ -4,16 +4,18 @@
             "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${workspaceFolder}/Drivers/CMSIS/**",
                 "${workspaceFolder}/Drivers/STM32F0xx_HAL_Driver/Inc",
-                "${workspaceFolder}/Drivers/STM32F0xx_HAL_Driver/Inc/**"
+                "${workspaceFolder}/Drivers/STM32F0xx_HAL_Driver/Inc/**",
+                "${workspaceFolder}/Drivers/STM32F0xx_HAL_Driver/Src"
             ],
-            "defines": [],
+            "defines": ["USE_HAL_DRIVER"],
             "macFrameworkPath": [
                 "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
             ],
-            "compilerPath": "/usr/bin/gcc",
-            "cStandard": "c17",
-            "cppStandard": "c++17",
+            "compilerPath": "/opt/homebrew/bin/arm-none-eabi-gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
             "intelliSenseMode": "macos-gcc-arm",
             "configurationProvider": "ms-vscode.makefile-tools"
         }

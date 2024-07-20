@@ -21,12 +21,13 @@ void process_midi_message(uint8_t *midi_buffer)
     {
     case MIDI_START_BYTE:
         ok_clock_reset();
+        ok_clock_start();
         break;
     case MIDI_STOP_BYTE:
-        ok_clock_reset();
+        ok_clock_stop();
         break;
     case MIDI_CONTINUE_BYTE:
-        ok_clock_reset();
+        // ok_clock_start();
         break;
     case MIDI_CLOCK_BYTE:
         ok_clock_advance();
