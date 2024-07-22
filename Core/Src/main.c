@@ -195,11 +195,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  GPIO_InitStruct.Pin = ENC_CHAN_B | ENC_CHAN_A | ENC_BTN | TOGGLE_SWITCH;
+  GPIO_InitStruct.Pin = ENC_BTN | TOGGLE_SWITCH;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-  
+
+  GPIO_InitStruct.Pin = ENC_CHAN_B | ENC_CHAN_A;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI4_15_IRQn, 0, 0);
@@ -265,11 +269,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     break;
 
   case ENC_CHAN_A:
-    encoderISR_A();
+    encoder_handle_rotation();
     break;
 
   case ENC_CHAN_B:
-    encoderISR_B();
+    // encoder_handle_rotation();
     break;
 
   case ENC_BTN:

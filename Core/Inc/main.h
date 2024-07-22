@@ -66,6 +66,12 @@ typedef int bool;
 #define HIGH 1
 #define LOW 0
 
+#define PPQN 24
+
+#define CLOCK_SOURCE_INTERNAL 0
+#define CLOCK_SOURCE_EXTERNAL 2
+#define CLOCK_SOURCE_MIDI 1
+
 #define RESET_BTN                GPIO_PIN_8
 #define RESET_BTN_LED            GPIO_PIN_15
 

@@ -2,13 +2,8 @@
 
 #include "main.h"
 
-#define CLOCK_SOURCE_INTERNAL 0
-#define CLOCK_SOURCE_EXTERNAL 2
-#define CLOCK_SOURCE_MIDI 1
-
 extern TIM_HandleTypeDef htim6;
 
-extern int PPQN;
 extern uint16_t PULSE;
 extern int CLOCK_SOURCE;
 extern int encoderDirection;
@@ -32,5 +27,4 @@ void ok_clock_set_clock_source(int clock_source);
 void init_TIM1();
 void init_TIM2();
 
-void encoderISR_A();
-void encoderISR_B();
+void encoder_handle_rotation();

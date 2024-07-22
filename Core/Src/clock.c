@@ -3,17 +3,15 @@
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
-uint16_t TEMPO_CEILING = 60000;
-uint16_t TEMPO_FLOOR = 6000;
-uint16_t FREQUENCY = 30000;
-uint8_t TEMPO_ADJUST = 100;
+uint32_t TEMPO_CEILING = 160000;
+uint32_t TEMPO_FLOOR = 6000;
+uint32_t FREQUENCY = 45000;
+uint16_t TEMPO_ADJUST = 500;
 
 bool encoderIsPressed = false;
 
 uint16_t PULSE = 0;
 bool RUNNING = false;
-
-int PPQN = 24;
 
 // Define the initial state of the encoder pins
 int encoderStateA = 0;
@@ -165,7 +163,7 @@ void ok_clock_set_clock_source(int clock_source)
  */
 void ok_clock_set_frequency(uint32_t frequency)
 {
-    if (frequency > TEMPO_FLOOR && frequency < TEMPO_CEILING)
+    if (frequency >= TEMPO_FLOOR && frequency <= TEMPO_CEILING)
     {
         FREQUENCY = frequency;
 
@@ -181,7 +179,7 @@ void ok_clock_set_frequency(uint32_t frequency)
 
 // this function can be removed and its contents put in encoder interrupt function
 void ok_clock_set_period() {
-    int incrementAmount = encoderIsPressed ? 10 : TEMPO_ADJUST;
+    int incrementAmount = encoderIsPressed ? 100 : TEMPO_ADJUST;
 
     if (encoderDirection == 1)
     {
@@ -361,48 +359,19 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
     }
 }
 
-// Interrupt service routine for encoder pin A
-void encoderISR_A()
+void encoder_handle_rotation()
 {
-    encoderStateA = HAL_GPIO_ReadPin(GPIOA, ENC_CHAN_A);
+    int chanA = HAL_GPIO_ReadPin(GPIOA, ENC_CHAN_A);
+    int chanB = HAL_GPIO_ReadPin(GPIOA, ENC_CHAN_B);
 
-    if (encoderStateA != prevEncoderStateA)
+    if (chanA == 0 && chanB == 1)
     {
-        // If the A pin changed, read the B pin to determine direction
-        if (encoderStateA == encoderStateB)
-        {
-            encoderDirection = -1;
-            ok_clock_set_period();
-        }
-        else
-        {
-            encoderDirection = 1;
-            ok_clock_set_period();
-        }
+        encoderDirection = 1;
+        ok_clock_set_period();
     }
-
-    prevEncoderStateA = encoderStateA;
-}
-
-// Interrupt service routine for encoder pin B
-void encoderISR_B()
-{
-    encoderStateB = HAL_GPIO_ReadPin(GPIOA, ENC_CHAN_B);
-
-    if (encoderStateB != prevEncoderStateB)
+    else if (chanA == 0 && chanB == 0)
     {
-        // If the B pin changed, read the A pin to determine direction
-        if (encoderStateB == encoderStateA)
-        {
-            encoderDirection = 1;
-            // ok_clock_set_period();
-        }
-        else
-        {
-            encoderDirection = -1;
-            // ok_clock_set_period();
-        }
+        encoderDirection = -1;
+        ok_clock_set_period();
     }
-
-    prevEncoderStateB = encoderStateB;
 }
