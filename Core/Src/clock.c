@@ -189,57 +189,6 @@ void ok_clock_set_period() {
 }
 
 
-/**
- * @brief this callback needs to trigger at a rate of PPQN * 2
- * On even it will advance PPQN by 1 and write PPQN_96 pin HIGH
- * On odd it will write PPQN_96 pin LOW
- * When PULSE == 0, Increments Step + 1 and writes PPQN_1 pin HIGH
- * After 4 pulse counts, writes PPQN_1 pin LOW
- *
- * @param htim
- */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-    if (htim->Instance == TIM2)
-    {
-        ok_clock_advance();
-    } else if (htim->Instance == TIM6) {
-        HAL_GPIO_WritePin(GPIOA, TRANSPORT_PPQN, LOW); // set to low after short delay (delay dertmined by TIM6)
-        HAL_TIM_Base_Stop_IT(htim);
-    }
-}
-
-/**
- * @brief Input Capture Callback for all TIMx configured in Input Capture mode
- */
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
-    if (htim->Instance == TIM1) {
-        ok_clock_capture();
-        // this is working, but the problem now is that we need to handle missed PPQNs,
-        // and in order to do that we usually just trigger all remaining PPQNs instantly, 
-        // which will no longer work because the connected modules 'might' not be configured to handle 
-        // trigger events so rapidly.
-        // We would have to execute the remaining PPQNs over a short period of time, so the rise and fall of
-        // the signal gets detected by connected modules.
-
-        // alternatively, the external devices could be setup so that they listen for the quarter note signal,
-        // and then determine if they have executed all their PPQNs, at which point they would execute them
-        
-        // or, the F4 is actually running at twice the speed, so take the new
-        // rate at which to trigger pulse out on and off === (numTicksPerPulse / (PPQN - 1 - PULSE)) * 2
-
-        // ACTUALLY, your pulse is actually PPQN * 2, so you would need to multiply the above equation by 2.
-
-        // or, maybe you could set the new TIM2 speed to the above formula
-
-
-        // or, external modules stop their clocks once their pulse === PPQN - 1. They don't start until quarter note comes in
-        // if quarter note comes early, they rapidly execute remaining pulses via a qeuee
-        // if you do this, then PPQN on clock means nothing
-    }
-}
-
 void encoder_handle_rotation()
 {
     int chanA = HAL_GPIO_ReadPin(GPIOA, ENC_CHAN_A);
