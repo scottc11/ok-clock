@@ -179,7 +179,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM2)
     {
-        ok_clock_advance();
+        if (CLOCK_SOURCE == CLOCK_SOURCE_INTERNAL)
+        {
+            ok_clock_advance();
+        }
     }
     else if (htim->Instance == TIM6)
     {

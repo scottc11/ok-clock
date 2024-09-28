@@ -36,7 +36,6 @@ void ok_clock_start()
     switch (CLOCK_SOURCE)
     {
     case CLOCK_SOURCE_INTERNAL:
-        // HAL_NVIC_DisableIRQ(TIM1_CC_IRQn); // not sure why this is here
         HAL_TIM_Base_Start_IT(&htim2);
         break;
 
@@ -45,7 +44,10 @@ void ok_clock_start()
         break;
 
     case CLOCK_SOURCE_MIDI:
-        // disable UART
+        // use TIM2 to count time between MIDI messages (for upsampling, not yet implemented)
+        __HAL_TIM_SET_COUNTER(&htim2, 0); // TIM2
+        __HAL_TIM_SET_AUTORELOAD(&htim2, 0xFFFFFFFF - 1); // TIM2
+        HAL_TIM_Base_Start_IT(&htim2);
         break;
     }
 }
@@ -133,7 +135,7 @@ void ok_clock_capture()
     uint32_t inputCapture = __HAL_TIM_GetCompare(&htim1, TIM_CHANNEL_3);
     ok_clock_set_frequency(inputCapture / PPQN);
     PULSE = 0;
-    ok_clock_advance();
+    ok_clock_advance(); // should you trigger this? Won't the timers do this automatically?
 }
 
 void ok_clock_reset()
@@ -145,7 +147,6 @@ void ok_clock_reset()
 
 void ok_clock_set_clock_source(int clock_source)
 {
-    
     HAL_TIM_Base_Stop_IT(&htim2);
     HAL_TIM_IC_Stop_IT(&htim1, TIM_CHANNEL_3);
     CLOCK_SOURCE = clock_source;
@@ -174,34 +175,26 @@ void ok_clock_set_frequency(uint32_t frequency)
     }
 }
 
-// this function can be removed and its contents put in encoder interrupt function
-void ok_clock_set_period() {
-    int incrementAmount = encoderIsPressed ? 100 : TEMPO_ADJUST;
-
-    if (encoderDirection == 1)
-    {
-        ok_clock_set_frequency(FREQUENCY - incrementAmount);
-    }
-    else if (encoderDirection == -1)
-    {
-        ok_clock_set_frequency(FREQUENCY + incrementAmount);
-    }
-}
-
-
 void encoder_handle_rotation()
 {
     int chanA = HAL_GPIO_ReadPin(GPIOA, ENC_CHAN_A);
     int chanB = HAL_GPIO_ReadPin(GPIOA, ENC_CHAN_B);
-
+    int incrementAmount = encoderIsPressed ? 100 : TEMPO_ADJUST;
+    
     if (chanA == 0 && chanB == 1)
     {
-        encoderDirection = 1;
-        ok_clock_set_period();
+        encoderDirection = 1;    
+        if (CLOCK_SOURCE == CLOCK_SOURCE_INTERNAL)
+        {
+            ok_clock_set_frequency(FREQUENCY - incrementAmount);
+        }
     }
     else if (chanA == 0 && chanB == 0)
     {
         encoderDirection = -1;
-        ok_clock_set_period();
+        if (CLOCK_SOURCE == CLOCK_SOURCE_INTERNAL)
+        {
+            ok_clock_set_frequency(FREQUENCY + incrementAmount);
+        }
     }
 }
